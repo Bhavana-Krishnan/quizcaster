@@ -62,7 +62,7 @@ jobs:
           fi
           ls -la
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: quizcaster-${{ runner.os }}
           path: dist/QuizCaster-*

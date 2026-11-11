@@ -1,8 +1,8 @@
 """Check GitHub Releases for a newer version. Never installs anything: it only tells
 the user, so an update can't land in the middle of a live show.
 
-The check sends no personal data, only a generic User-Agent, and is cached for six
-hours. It can be turned off in Setup, and it fails silently when offline.
+The check sends no personal data, only a generic User-Agent, and is cached for a
+week. It can be turned off in Setup, and it fails silently when offline.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from . import __version__, db
 
 REPO = "Bhavana-Krishnan/quizcaster"          # the public repository that publishes releases
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
-CACHE_SECONDS = 6 * 3600
+CACHE_SECONDS = 7 * 24 * 3600          # check at most once a week
 _cache: dict = {"at": 0.0, "data": None}
 
 

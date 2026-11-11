@@ -181,7 +181,7 @@ awake and connected during a show.
 
 ## Updates
 
-QuizCaster checks GitHub for new releases every six hours and shows a banner when
+QuizCaster checks GitHub for new releases once a week and shows a banner when
 one is available. It never installs updates during a show. Download the new
 version from the release page, or turn checking off in **Setup → Updates**.
 

@@ -3,6 +3,6 @@ uvicorn>=0.29
 requests>=2.31
 cryptography>=42
 pillow>=10.1
-playwright>=1.44
+playwright>=1.64.1
 python-multipart>=0.0.9
 openpyxl>=3.1

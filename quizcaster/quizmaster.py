@@ -227,7 +227,8 @@ class Quizmaster:
                     continue
                 letter = parse_answer(m.text)
                 self._show_comment(m, "answer" if letter else "")
-                if letter is None or m.author_id in answered:
+                # Answers after the winner's timestamp are too late, even if they arrived in the same batch.
+                if letter is None or s.winner is not None or m.author_id in answered:
                     continue
                 answered.add(m.author_id)        # first answer only, right or wrong
                 s.answer_counts[letter] += 1

@@ -1,0 +1,16 @@
+{
+  "questions": [
+    {"question": "Which planet is known as the Red Planet?", "options": ["Venus", "Mars", "Jupiter", "Mercury"], "answer": "B",
+     "explanation": "Iron oxide (rust) in the dust and rocks on its surface gives Mars its reddish colour."},
+    {"question": "What is the largest ocean on Earth?", "options": ["Atlantic", "Indian", "Arctic", "Pacific"], "answer": "D",
+     "explanation": "The Pacific covers about a third of Earth's surface, more than all land combined."},
+    {"question": "Which gas do plants absorb from the air for photosynthesis?", "options": ["Oxygen", "Nitrogen", "Carbon dioxide", "Helium"], "answer": "C",
+     "explanation": "Plants take in carbon dioxide and, using sunlight and water, turn it into sugar and oxygen."},
+    {"question": "How many sides does a hexagon have?", "options": ["Six", "Five", "Eight", "Seven"], "answer": "A",
+     "explanation": "'Hex' comes from the Greek word for six, so a hexagon has six sides."},
+    {"question": "Who wrote the national anthem of India, 'Jana Gana Mana'?", "options": ["Bankim Chandra", "Sarojini Naidu", "Rabindranath Tagore", "Subramania Bharati"], "answer": "C",
+     "explanation": "Rabindranath Tagore composed it in Bengali; it was adopted as India's national anthem in 1950."},
+    {"question": "What is the hardest natural substance?", "options": ["Gold", "Diamond", "Iron", "Quartz"], "answer": "B",
+     "explanation": "Diamond's carbon atoms are locked in a very strong 3D lattice, making it the hardest natural material."}
+  ]
+}

@@ -1,0 +1,26 @@
+# user data: keys, database, recordings. Never commit these.
+data/
+*.db
+secret.key
+blocked_words.txt
+
+# build output
+build/
+dist/
+*.spec.bak
+*.egg-info/
+
+# python / tooling
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

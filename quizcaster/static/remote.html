@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B1446">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>QuizCaster remote</title>
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22QuizCaster%20remote%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%231B1446%22%2C%22theme_color%22%3A%22%231B1446%22%2C%22start_url%22%3A%22%2Fremote%22%7D">
+<link rel="stylesheet" href="/static/dashboard.css">
+<style>
+  body { padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; }
+  header.r { display: flex; align-items: center; gap: 10px; padding: 18px 0 10px; font-family: Poppins, system-ui; font-weight: 700; font-size: 20px; }
+  .state { font-family: Poppins, system-ui; font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+  .big-actions { display: grid; gap: 10px; margin: 14px 0; }
+  .big-actions .btn { justify-content: center; font-size: 17px; padding: 14px; }
+  .pin-input { font-size: 28px; letter-spacing: 8px; text-align: center; font-family: Poppins, system-ui; }
+  .panel { padding: 16px; }
+  .comments { max-height: 300px; }
+</style>
+</head>
+<body>
+<header class="r">
+  <svg viewBox="0 0 64 64" width="32" height="32" aria-hidden="true"><circle cx="32" cy="36" r="24" fill="#FFC233" stroke="currentColor" stroke-width="3"/><circle cx="25" cy="34" r="3" fill="currentColor"/><circle cx="41" cy="34" r="3" fill="currentColor"/><path d="M25 44q7 6 14 0" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+  QuizCaster remote
+</header>
+
+<section id="login" class="panel hidden">
+  <h2>Enter the PIN</h2>
+  <p class="help">Find it on your computer in QuizCaster → Setup → Mobile remote.</p>
+  <form id="loginForm">
+    <input id="pin" class="pin-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" aria-label="PIN">
+    <div class="big-actions"><button class="btn primary">Connect</button></div>
+    <p class="msg" id="loginMsg"></p>
+  </form>
+</section>
+
+<section id="main" class="hidden">
+  <div class="panel">
+    <div class="state" id="state">Nothing running</div>
+    <p class="help" id="sub"></p>
+    <div class="big-actions" id="liveActions">
+      <a class="btn ghost hidden" id="watch" target="_blank" rel="noopener">Open on YouTube</a>
+      <button class="btn" id="soft">Finish after this question</button>
+      <button class="btn danger" id="hard">Stop now</button>
+    </div>
+  </div>
+
+  <div class="panel" id="startPanel">
+    <h2>Start a show</h2>
+    <label>Question set <select id="set"></select></label>
+    <label>Theme <select id="theme"></select></label>
+    <label>Mode
+      <select id="mode"><option value="live">Go live (public)</option><option value="test">Test run (unlisted)</option><option value="preview">Preview on the computer</option></select>
+    </label>
+    <div class="big-actions"><button class="btn primary" id="go">Start</button></div>
+    <p class="msg" id="goMsg"></p>
+  </div>
+
+  <div class="panel"><h2>Leaderboard</h2><ol class="board" id="board"><li class="empty">No points yet.</li></ol></div>
+  <div class="panel"><h2>Comments</h2><ul class="comments" id="comments"><li class="empty">Comments appear during answer windows.</li></ul></div>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  if (r.status === 403) { show("login"); throw new Error("Please enter the PIN."); }
+  const d = await r.json().catch(() => ({ ok: false, error: "Server error" }));
+  if (!d.ok) throw new Error(d.error);
+  return d;
+}
+function show(which) { $("login").classList.toggle("hidden", which !== "login"); $("main").classList.toggle("hidden", which !== "main"); }
+
+$("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  try { await api("/remote/login", { pin: $("pin").value.trim() }); boot(); }
+  catch (err) { $("loginMsg").textContent = err.message; $("loginMsg").className = "msg err"; }
+};
+
+function applyStatus(s) {
+  const active = ["starting", "live", "preview"].includes(s.state);
+  $("state").textContent = { starting: "Starting…", live: "You're live", preview: "Preview running" }[s.state] || "Nothing running";
+  $("sub").textContent = active && s.question ? `Question ${s.question}${s.total ? " of " + s.total : ""}` + (s.tech_break ? " · technical break" : "") : "";
+  $("liveActions").classList.toggle("hidden", !active);
+  $("startPanel").classList.toggle("hidden", active);
+  $("watch").classList.toggle("hidden", !s.video_url); if (s.video_url) $("watch").href = s.video_url;
+}
+function board(rows) { $("board").innerHTML = rows?.length ? rows.map((r, i) => `<li><span>${i + 1}. ${esc(r.name)}</span><b>${r.points}</b></li>`).join("") : `<li class="empty">No points yet.</li>`; }
+
+$("soft").onclick = () => api("/api/remote/stop", {}).catch(e => alert(e.message));
+$("hard").onclick = () => confirm("Stop immediately?") && api("/api/remote/stop", { now: true }).catch(e => alert(e.message));
+$("go").onclick = async () => {
+  const mode = $("mode").value;
+  if (mode === "live" && !confirm("Go live publicly now?")) return;
+  try { await api("/api/remote/golive", { mode, set_id: +$("set").value, theme: $("theme").value, privacy: "public" }); $("goMsg").textContent = ""; }
+  catch (err) { $("goMsg").textContent = err.message; $("goMsg").className = "msg err"; }
+};
+
+async function boot() {
+  let st;
+  try { st = await api("/api/remote/state"); } catch { show("login"); return; }
+  show("main");
+  $("set").innerHTML = st.sets.length ? st.sets.map(s => `<option value="${s.id}">${esc(s.name)} (${s.approved})</option>`).join("") : `<option value="">Approve questions on the computer first</option>`;
+  $("theme").innerHTML = st.themes.map(t => `<option>${t}</option>`).join(""); $("theme").value = "dark";
+  applyStatus(st.session); board(st.leaderboard);
+  const es = new EventSource("/events/control");
+  es.addEventListener("status", e => applyStatus(JSON.parse(e.data)));
+  es.addEventListener("winner", e => board(JSON.parse(e.data).leaderboard));
+  es.addEventListener("comment", e => {
+    const c = JSON.parse(e.data), ul = $("comments"); ul.querySelector(".empty")?.remove();
+    const li = document.createElement("li"); li.innerHTML = `<b>${esc(c.name)}</b><span>${esc(c.text)}</span>`;
+    ul.prepend(li); while (ul.children.length > 60) ul.lastChild.remove();
+  });
+}
+boot();
+</script>
+</body>
+</html>

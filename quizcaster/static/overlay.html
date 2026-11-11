@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=720">
+<title>Quiz overlay</title>
+<style>
+@font-face { font-family: "Poppins"; src: url("/static/fonts/Poppins-Regular.ttf") format("truetype"); font-weight: 400; }
+@font-face { font-family: "Poppins"; src: url("/static/fonts/Poppins-Medium.ttf") format("truetype"); font-weight: 500; }
+@font-face { font-family: "Poppins"; src: url("/static/fonts/Poppins-Bold.ttf") format("truetype"); font-weight: 700; }
+
+/* ---- themes: answer colours are fixed across themes so viewers learn them ---- */
+:root {
+  --a: #FF5A5F; --b: #3D7BFF; --c: #13A866; --d: #9B5CFF;
+  --live: #E62117;
+}
+body[data-theme="light"] {
+  --bg: #FFD84D; --bg2: #FFB938; --ink: #1B1446; --card: #FFFFFF; --card-ink: #1B1446;
+  --muted: rgba(27,20,70,.62); --edge: #1B1446; --bubble: #FFFFFF; --mascot: #FF7A2F; --glow: none;
+}
+body[data-theme="dark"] {
+  --bg: #1B1446; --bg2: #2B1F6B; --ink: #FFF6E0; --card: #2E2470; --card-ink: #FFF6E0;
+  --muted: rgba(255,246,224,.66); --edge: #0D0926; --bubble: #FFF6E0; --mascot: #FFC233; --glow: none;
+}
+body[data-theme="neon"] {
+  --bg: #12002B; --bg2: #2A0057; --ink: #FFFFFF; --card: #1E0645; --card-ink: #FFFFFF;
+  --muted: rgba(255,255,255,.66); --edge: #000000; --bubble: #FFFFFF; --mascot: #FF3DC8;
+  --a: #FF4D6D; --b: #22B8FF; --c: #00E6A8; --d: #B266FF;
+  --glow: 0 0 22px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 720px; height: 1280px; overflow: hidden; }
+body {
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif; color: var(--ink);
+  background: radial-gradient(120% 70% at 50% 0%, var(--bg2) 0%, var(--bg) 60%);
+  position: relative;
+}
+/* faint dot grid gives the studio floor some texture without competing */
+body::before {
+  content: ""; position: absolute; inset: 0; opacity: .12;
+  background-image: radial-gradient(var(--ink) 1.4px, transparent 1.6px); background-size: 28px 28px;
+}
+
+/* ---------- header ---------- */
+header { position: absolute; top: 34px; left: 36px; right: 36px; display: flex; align-items: center; gap: 16px; }
+.live { background: var(--live); color: #fff; font-weight: 700; font-size: 24px; padding: 6px 18px 6px 14px;
+  border-radius: 999px; display: flex; align-items: center; gap: 10px; }
+.live i { width: 14px; height: 14px; border-radius: 50%; background: #fff; animation: blink 1.4s infinite; }
+.preview .live { background: #6B6B80; }
+.topic { font-weight: 700; font-size: 26px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qcount { font-weight: 700; font-size: 26px; background: var(--card); color: var(--card-ink);
+  padding: 6px 16px; border-radius: 14px; border: 3px solid var(--edge); }
+
+/* ---------- host: mascot + speech bubble ---------- */
+.host { position: absolute; top: 104px; left: 22px; right: 36px; height: 210px; display: flex; align-items: center; gap: 10px; }
+#mascot { width: 194px; height: 210px; flex: none; }
+.bubble { position: relative; background: var(--bubble); color: #1B1446; border: 4px solid var(--edge);
+  border-radius: 28px; padding: 18px 24px; font-size: 26px; font-weight: 500; line-height: 1.3;
+  box-shadow: 6px 6px 0 var(--edge); flex: 1; }
+.bubble::before { content: ""; position: absolute; left: -22px; top: 50%; margin-top: -16px;
+  border: 16px solid transparent; border-right: 22px solid var(--edge); border-left: 0; }
+.bubble::after { content: ""; position: absolute; left: -15px; top: 50%; margin-top: -11px;
+  border: 11px solid transparent; border-right: 16px solid var(--bubble); border-left: 0; }
+.bubble b { color: inherit; }
+
+/* ---------- stage ---------- */
+.stage { position: absolute; top: 336px; left: 36px; right: 36px; }
+.qcard { background: var(--card); color: var(--card-ink); border: 4px solid var(--edge); border-radius: 30px;
+  padding: 24px 28px 26px; box-shadow: 8px 8px 0 var(--edge); }
+.qcard .qlabel { font-size: 22px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+.qtext { font-size: 36px; font-weight: 700; line-height: 1.22; }
+.qtext.long { font-size: 31px; }
+
+.options { margin-top: 22px; display: grid; gap: 14px; }
+.opt { display: flex; align-items: center; gap: 18px; background: var(--card); color: var(--card-ink);
+  border: 4px solid var(--edge); border-radius: 22px; padding: 10px 20px 10px 10px; min-height: 80px;
+  box-shadow: 6px 6px 0 var(--edge); transition: transform .35s, opacity .35s, background .35s; }
+.tile { width: 60px; height: 60px; flex: none; border-radius: 16px; display: grid; place-items: center;
+  font-size: 38px; font-weight: 700; color: #fff; border: 3px solid var(--edge);
+  box-shadow: inset 0 -7px 0 rgba(0,0,0,.22), var(--glow) currentColor; }
+.opt[data-l="A"] .tile { background: var(--a); } .opt[data-l="B"] .tile { background: var(--b); }
+.opt[data-l="C"] .tile { background: var(--c); } .opt[data-l="D"] .tile { background: var(--d); }
+.opt .otext { font-size: 28px; font-weight: 500; line-height: 1.2; }
+.opt.enter { animation: pop .45s cubic-bezier(.2,1.4,.4,1) both; }
+.opt.wrong { opacity: .32; transform: scale(.97); }
+.opt.right { transform: scale(1.03); }
+.opt.right[data-l="A"] { background: var(--a); } .opt.right[data-l="B"] { background: var(--b); }
+.opt.right[data-l="C"] { background: var(--c); } .opt.right[data-l="D"] { background: var(--d); }
+.opt.right .otext { color: #fff; font-weight: 700; }
+.opt.right .tile { background: #fff !important; color: var(--edge); }
+
+/* ---------- timer ---------- */
+.timer { margin-top: 22px; display: flex; align-items: center; gap: 16px; }
+.track { flex: 1; height: 26px; border-radius: 999px; background: var(--card); border: 4px solid var(--edge); overflow: hidden; }
+.fill { height: 100%; width: 100%; background: var(--c); transform-origin: left; }
+.fill.hurry { background: var(--a); }
+.tnum { font-size: 34px; font-weight: 700; min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.answers { margin-top: 10px; font-size: 22px; color: var(--muted); font-weight: 500; }
+
+/* ---------- winner / explanation ---------- */
+.winner { margin-top: 22px; display: flex; align-items: center; gap: 18px; background: var(--ink); color: var(--bg);
+  border-radius: 24px; padding: 18px 24px; animation: pop .5s cubic-bezier(.2,1.4,.4,1) both; }
+.winner svg { flex: none; }
+.winner .wname { font-size: 34px; font-weight: 700; line-height: 1.1; word-break: break-word; }
+.winner .wsub { font-size: 22px; font-weight: 500; opacity: .8; }
+.explain-card .answer-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.explain-card .answer-row .otext { font-size: 30px; font-weight: 700; }
+.explain-card p { font-size: 29px; line-height: 1.42; font-weight: 400; }
+.asker { margin-top: 22px; font-size: 24px; font-weight: 500; color: var(--muted); }
+
+/* ---------- boards ---------- */
+.board { list-style: none; display: grid; gap: 14px; margin-top: 24px; }
+.board li { display: flex; align-items: center; gap: 18px; background: var(--card); color: var(--card-ink);
+  border: 4px solid var(--edge); border-radius: 20px; padding: 14px 22px; box-shadow: 5px 5px 0 var(--edge);
+  font-size: 30px; font-weight: 500; }
+.board .rank { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+  background: var(--bg); color: var(--ink); border: 3px solid var(--edge); flex: none; font-size: 26px; }
+.board li:first-child .rank { background: #FFC233; color: #1B1446; }
+.board .pname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+.title { font-size: 46px; font-weight: 700; line-height: 1.1; }
+.sub { font-size: 26px; color: var(--muted); margin-top: 8px; font-weight: 500; }
+.champ { text-align: center; padding: 10px 0 6px; }
+.champ .cname { font-size: 52px; font-weight: 700; line-height: 1.1; margin-top: 6px; word-break: break-word; }
+
+/* ---------- footer strip: top 3 + how to play ---------- */
+footer { position: absolute; left: 36px; right: 36px; bottom: 36px; }
+.mini { display: flex; gap: 10px; margin-bottom: 14px; }
+.mini span { background: var(--card); color: var(--card-ink); border: 3px solid var(--edge); border-radius: 14px;
+  padding: 6px 14px; font-size: 21px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33%; }
+.mini span b { font-weight: 700; }
+.howto { font-size: 21px; font-weight: 500; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+.howto .k { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: #fff;
+  font-weight: 700; font-size: 20px; border: 2px solid var(--edge); }
+
+.center { text-align: center; }
+.hidden { display: none !important; }
+
+/* ---------- mascot moods ---------- */
+#mascot .body { transform-origin: 115px 230px; }
+.idle  #mascot .body { animation: bob 2.4s ease-in-out infinite; }
+.think #mascot .body { animation: sway 1.8s ease-in-out infinite; }
+.cheer #mascot .body { animation: jump .7s cubic-bezier(.3,0,.4,1) infinite; }
+.sad   #mascot .body { animation: droop 3s ease-in-out infinite; }
+#mascot .pupils { transition: transform .3s; }
+.think #mascot .pupils { transform: translate(5px,-7px); }
+.sad #mascot .pupils { transform: translate(0,6px); }
+#mascot .m { display: none; }
+.idle #mascot .m-smile, .think #mascot .m-o, .cheer #mascot .m-grin, .sad #mascot .m-sad { display: block; }
+#mascot .spark { opacity: 0; }
+.cheer #mascot .spark { animation: spark .7s ease-out infinite; }
+
+@keyframes bob { 50% { transform: translateY(-10px); } }
+@keyframes sway { 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes jump { 0%,100% { transform: translateY(0) scale(1.03,.97); } 45% { transform: translateY(-26px) scale(.97,1.04); } }
+@keyframes droop { 50% { transform: translateY(6px) rotate(-3deg); } }
+@keyframes spark { 0% { opacity: 1; transform: scale(.4); } 100% { opacity: 0; transform: scale(1.3); } }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body data-theme="dark" class="idle">
+
+<header>
+  <div class="live"><i></i><span id="liveText">LIVE</span></div>
+  <div class="topic" id="topic">Live quiz</div>
+  <div class="qcount hidden" id="qcount"></div>
+</header>
+
+<div class="host">
+  <!-- "Quizzy" — the show's original mascot -->
+  <svg id="mascot" viewBox="0 0 230 250" aria-hidden="true">
+    <g class="body">
+      <g class="spark" style="transform-origin:115px 120px">
+        <path d="M30 60l8 14 14 8-14 8-8 14-8-14-14-8 14-8z" fill="#fff"/>
+        <path d="M200 40l6 10 10 6-10 6-6 10-6-10-10-6 10-6z" fill="#fff"/>
+      </g>
+      <path d="M115 62 C115 40 132 34 140 22" stroke="var(--edge)" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <text x="146" y="28" font-family="Poppins" font-weight="700" font-size="44" fill="var(--ink)" stroke="var(--edge)" stroke-width="2">?</text>
+      <ellipse cx="115" cy="150" rx="92" ry="86" fill="var(--mascot)" stroke="var(--edge)" stroke-width="7"/>
+      <ellipse cx="88" cy="112" rx="26" ry="14" fill="#fff" opacity=".35" transform="rotate(-25 88 112)"/>
+      <ellipse cx="38" cy="168" rx="16" ry="24" fill="var(--mascot)" stroke="var(--edge)" stroke-width="6"/>
+      <ellipse cx="192" cy="168" rx="16" ry="24" fill="var(--mascot)" stroke="var(--edge)" stroke-width="6"/>
+      <circle cx="84" cy="140" r="22" fill="#fff" stroke="var(--edge)" stroke-width="5"/>
+      <circle cx="146" cy="140" r="22" fill="#fff" stroke="var(--edge)" stroke-width="5"/>
+      <g class="pupils">
+        <circle cx="88" cy="143" r="10" fill="#1B1446"/><circle cx="150" cy="143" r="10" fill="#1B1446"/>
+        <circle cx="91" cy="139" r="3.5" fill="#fff"/><circle cx="153" cy="139" r="3.5" fill="#fff"/>
+      </g>
+      <circle cx="62" cy="176" r="10" fill="#FF6B8A" opacity=".55"/>
+      <circle cx="168" cy="176" r="10" fill="#FF6B8A" opacity=".55"/>
+      <path class="m m-smile" d="M95 182 Q115 200 135 182" stroke="#1B1446" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <ellipse class="m m-o" cx="115" cy="188" rx="10" ry="12" fill="#1B1446"/>
+      <path class="m m-grin" d="M88 178 Q115 222 142 178 Z" fill="#1B1446" stroke="#1B1446" stroke-width="4" stroke-linejoin="round"/>
+      <path class="m m-sad" d="M97 196 Q115 180 133 196" stroke="#1B1446" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </g>
+  </svg>
+  <div class="bubble" id="bubble">Warming up the studio…</div>
+</div>
+
+<main class="stage" id="stage"></main>
+
+<footer id="footer">
+  <div class="mini" id="mini"></div>
+  <div class="howto">Type
+    <span class="k" style="background:var(--a)">A</span><span class="k" style="background:var(--b)">B</span>
+    <span class="k" style="background:var(--c)">C</span><span class="k" style="background:var(--d)">D</span>
+    in chat. Fastest correct wins!</div>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const params = new URLSearchParams(location.search);
+let current = {}, timerRAF = null, lastScene = null;
+
+const CROWN = `<svg width="64" height="54" viewBox="0 0 64 54"><path d="M4 18l14 12L32 6l14 24 14-12-6 30H10z" fill="#FFC233" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/></svg>`;
+
+function mood(m) { document.body.classList.remove("idle","think","cheer","sad"); document.body.classList.add(m); }
+function say(html) { $("bubble").innerHTML = html; }
+
+function optionsHTML(s, mode) {
+  return `<div class="options">${["A","B","C","D"].map((l,i) => {
+    let cls = "opt";
+    if (mode === "enter") cls += " enter";
+    if (mode === "reveal") cls += (l === s.answer ? " right" : " wrong");
+    return `<div class="${cls}" data-l="${l}" style="animation-delay:${i*90}ms"><div class="tile">${l}</div><div class="otext">${esc(s.options[i])}</div></div>`;
+  }).join("")}</div>`;
+}
+function boardHTML(rows) {
+  return `<ol class="board">${rows.map((r,i) => `<li><span class="rank">${i+1}</span><span class="pname">${esc(r.name)}</span><span class="pts">${r.points} pt${r.points===1?"":"s"}</span></li>`).join("")}</ol>`;
+}
+function qcard(s, label=false) {
+  const long = (s.question || "").length > 80 ? " long" : "";
+  return `<div class="qcard">${label ? `<div class="qlabel">Question ${s.qnum}</div>` : ""}<div class="qtext${long}">${esc(s.question)}</div></div>`;
+}
+
+function renderMini(s) {
+  const rows = (s.leaderboard || []).slice(0,3);
+  const hide = ["leaderboard","final","break","idle","intro"].includes(s.scene) || !rows.length;
+  $("mini").innerHTML = hide ? "" : rows.map((r,i) => `<span>${i+1}. <b>${esc(r.name)}</b> ${r.points}</span>`).join("");
+  $("footer").classList.toggle("hidden", ["final","break"].includes(s.scene));
+}
+
+function startTimer(s) {
+  cancelAnimationFrame(timerRAF);
+  const tick = () => {
+    const fill = document.querySelector(".fill"), num = document.querySelector(".tnum");
+    if (!fill) return;
+    const left = Math.max(0, s.ends_at - Date.now()/1000);
+    fill.style.transform = `scaleX(${left / s.window})`;
+    fill.classList.toggle("hurry", left < 6);
+    num.textContent = Math.ceil(left);
+    if (left > 0) timerRAF = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function render(s) {
+  current = s;
+  document.body.dataset.theme = s.theme || "dark";
+  document.body.classList.toggle("preview", s.mode === "preview");
+  $("liveText").textContent = s.mode === "preview" ? "PREVIEW" : "LIVE";
+  if (s.topic) $("topic").textContent = s.topic;
+  const qc = $("qcount");
+  if (s.qnum) { qc.textContent = s.qtotal ? `${s.qnum}/${s.qtotal}` : `Q${s.qnum}`; qc.classList.remove("hidden"); }
+  else qc.classList.add("hidden");
+  renderMini(s);
+  const st = $("stage");
+  const sceneChanged = s.scene !== lastScene;
+  lastScene = s.scene;
+
+  switch (s.scene) {
+    case "intro":
+      mood("cheer"); say(esc(s.line));
+      st.innerHTML = `<div class="qcard center"><div class="title">${esc(s.topic)}</div><div class="sub">Fastest correct answer in chat takes the point</div></div>`;
+      break;
+    case "question":
+      mood("think"); say(`Question <b>${s.qnum}</b> coming up. Read carefully!`);
+      st.innerHTML = qcard(s);
+      break;
+    case "options":
+      mood("think");
+      if (sceneChanged) {
+        say(`Options are up! Type <b>A, B, C or D</b> in chat.`);
+        st.innerHTML = qcard(s) + optionsHTML(s, "enter") +
+          `<div class="timer"><div class="track"><div class="fill"></div></div><div class="tnum"></div></div><div class="answers" id="answers"></div>`;
+      }
+      startTimer(s);
+      $("answers").textContent = s.answers ? `${s.answers} answer${s.answers===1?"":"s"} in` : "Waiting for answers…";
+      break;
+    case "reveal":
+      cancelAnimationFrame(timerRAF);
+      mood(s.winner ? "cheer" : "sad"); say(esc(s.line));
+      st.innerHTML = qcard(s) + optionsHTML(s, "reveal") + (s.winner
+        ? `<div class="winner">${CROWN}<div><div class="wname">${esc(s.winner)}</div><div class="wsub">got it first. Beat that!</div></div></div>`
+        : "");
+      break;
+    case "explain": {
+      mood(s.asker ? "cheer" : "idle");
+      say(s.asker ? esc(s.why_line) : "Here's why that's the answer.");
+      const l = s.answer, i = "ABCD".indexOf(l);
+      st.innerHTML = `<div class="qcard explain-card"><div class="answer-row"><div class="opt right" data-l="${l}" style="padding:0;border:0;box-shadow:none;min-height:0;background:none"><div class="tile">${l}</div></div><div class="otext">${esc(s.answer_text)}</div></div><p>${esc(s.explanation)}</p>${s.asker ? `<div class="asker">${esc(s.asker)} asked why</div>` : ""}</div>`;
+      break;
+    }
+    case "leaderboard":
+      mood("idle"); say("Here's how the table looks right now!");
+      st.innerHTML = `<div class="title">Leaderboard</div>` + boardHTML(s.leaderboard || []);
+      break;
+    case "final":
+      mood("cheer"); say(esc(s.line));
+      st.innerHTML = (s.champion
+        ? `<div class="qcard champ">${CROWN}<div class="sub">Today's champion</div><div class="cname">${esc(s.champion)}</div></div>`
+        : `<div class="qcard champ"><div class="title">That's a wrap!</div></div>`) + boardHTML(s.leaderboard || []);
+      break;
+    case "break":
+      cancelAnimationFrame(timerRAF);
+      mood("sad"); say(esc(s.message || "We'll be right back!"));
+      st.innerHTML = `<div class="qcard center"><div class="title">Technical break</div><div class="sub">The quiz continues in a moment. Stay right here!</div></div>`;
+      break;
+    default:
+      mood("idle"); say("Warming up the studio…");
+      st.innerHTML = `<div class="qcard center"><div class="title">Live quiz starting soon</div><div class="sub">Get ready to answer in chat</div></div>`;
+  }
+}
+
+// Static demo for design checks: /overlay?demo=options&theme=light
+if (params.get("demo")) {
+  const now = Date.now()/1000, demo = params.get("demo");
+  render({ scene: demo, theme: params.get("theme") || "dark", mode: "live", topic: "World Geography", qnum: 4, qtotal: 20,
+    question: "Which river flows through the most countries in the world?",
+    options: ["Nile", "Danube", "Amazon", "Mekong"], answer: "B", answer_text: "Danube",
+    explanation: "The Danube passes through 10 countries, from Germany to Ukraine, more than any other river.",
+    opened_at: now-12, ends_at: now+18, window: 30, answers: 23, winner: "PriyaQuizzes",
+    line: "PriyaQuizzes was FAST! Who's beating that next round?",
+    leaderboard: [{name:"PriyaQuizzes",points:3},{name:"Arjun_K",points:2},{name:"TriviaTom",points:1},{name:"MeeraM",points:1}],
+    champion: "PriyaQuizzes", asker: params.get("asker") ? "neha.reads" : null, why_line: "Curious mind, neha.reads! The reason:" });
+} else {
+  const connect = () => {
+    const es = new EventSource("/events/overlay");
+    es.addEventListener("scene", (e) => render(JSON.parse(e.data)));
+    es.onerror = () => { es.close(); setTimeout(connect, 1000); };
+  };
+  connect();
+}
+</script>
+</body>
+</html>

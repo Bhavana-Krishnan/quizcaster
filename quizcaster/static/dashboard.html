@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuizCaster</title>
+<link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+<div class="app">
+  <nav class="side">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" width="40" height="40" aria-hidden="true"><circle cx="32" cy="36" r="24" fill="#FFC233" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="33" r="6" fill="#fff" stroke="currentColor" stroke-width="2"/><circle cx="40" cy="33" r="6" fill="#fff" stroke="currentColor" stroke-width="2"/><circle cx="25" cy="34" r="2.6" fill="currentColor"/><circle cx="41" cy="34" r="2.6" fill="currentColor"/><path d="M25 44q7 6 14 0" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M32 12q0-6 6-8" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <span>QuizCaster</span>
+    </div>
+    <a href="#setup" data-tab="setup">Setup <i class="dot" id="setupDot"></i></a>
+    <a href="#questions" data-tab="questions">Questions</a>
+    <a href="#golive" data-tab="golive">Go live</a>
+    <a href="#live" data-tab="live">Live <i class="dot live-dot" id="liveDot"></i></a>
+    <a href="#history" data-tab="history">History</a>
+  </nav>
+
+  <main>
+    <div class="update hidden" id="updateBanner" role="status">
+      <span id="updateText"></span>
+      <span class="row tight"><a class="btn primary" id="updateLink" target="_blank" rel="noopener">See what's new</a>
+      <button class="btn ghost" id="updateLater">Later</button></span>
+    </div>
+    <!-- ======================= SETUP ======================= -->
+    <section id="tab-setup" class="tab">
+      <h1>Setup</h1>
+      <p class="lead">Everything runs on this computer with your own keys. Keys are stored encrypted on this machine only.</p>
+
+      <div class="panel" id="llmPanel">
+        <div class="panel-head"><h2>AI model</h2><span class="badge" id="llmBadge">Not set</span></div>
+        <p class="help">Paste a Claude (Anthropic) or OpenAI key. It's verified, then you pick the model QuizCaster uses for questions and host lines.</p>
+        <div class="row">
+          <label>Provider
+            <select id="llmProvider"><option value="anthropic">Claude (Anthropic)</option><option value="openai">OpenAI</option></select>
+          </label>
+          <label class="grow">API key
+            <input id="llmKey" type="password" autocomplete="off" placeholder="sk-…">
+          </label>
+          <button class="btn" id="llmVerify">Verify key</button>
+        </div>
+        <div class="row hidden" id="modelRow">
+          <label class="grow">Model
+            <select id="llmModel"></select>
+          </label>
+          <button class="btn primary" id="llmSave">Use this model</button>
+        </div>
+        <p class="msg" id="llmMsg"></p>
+      </div>
+
+      <div class="panel" id="ytPanel">
+        <div class="panel-head"><h2>YouTube</h2><span class="badge" id="ytBadge">Not connected</span></div>
+        <details class="howto" id="ytHowto">
+          <summary>How to get your Google client ID and secret (about 10 minutes, once)</summary>
+          <ol>
+            <li>Open <b>console.cloud.google.com</b> and create a project (any name).</li>
+            <li>Go to <b>APIs &amp; Services → Library</b>, search for <b>YouTube Data API v3</b> and press <b>Enable</b>.</li>
+            <li>Go to <b>OAuth consent screen</b>: choose <b>External</b>, fill in the app name and your email. Under <b>Test users</b>, add the Google account that owns your channel.</li>
+            <li>Go to <b>Credentials → Create credentials → OAuth client ID</b>. Choose <b>Desktop app</b>. Copy the client ID and secret here.</li>
+            <li>If you chose <b>Web application</b> instead, add this as an authorised redirect URI: <code id="redirectUri"></code></li>
+          </ol>
+          <p class="help">Your project's YouTube quota (10,000 units a day by default) is yours alone. QuizCaster tracks it and estimates how long you can stream.</p>
+        </details>
+        <div class="row">
+          <label class="grow">Client ID <input id="gcid" autocomplete="off" placeholder="…apps.googleusercontent.com"></label>
+          <label class="grow">Client secret <input id="gsecret" type="password" autocomplete="off" placeholder="GOCSPX-…"></label>
+          <button class="btn" id="gSave">Save</button>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="ytSignin">Sign in with Google</button>
+          <button class="btn" id="ytCheck">Check live streaming</button>
+          <button class="btn ghost" id="ytSignout">Sign out</button>
+        </div>
+        <p class="msg" id="ytMsg"></p>
+        <div class="row">
+          <label>Daily quota (units) <input id="quotaLimit" type="number" min="1000" step="1000"></label>
+          <button class="btn ghost" id="quotaSave">Update</button>
+          <p class="help grow" id="quotaInfo"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Mobile remote</h2><span class="badge" id="remoteBadge">Off</span></div>
+        <p class="help">Control the show from your phone on the same Wi-Fi: go live, stop, and watch comments and the leaderboard. This computer still does the streaming.</p>
+        <div class="row">
+          <label class="switch"><input type="checkbox" id="remoteOn"> Allow my phone to connect</label>
+          <button class="btn ghost" id="remoteNewPin">New PIN</button>
+        </div>
+        <div class="remote-info hidden" id="remoteInfo">
+          <p>On your phone, open <code id="remoteUrl"></code> and enter PIN <b class="pin" id="remotePin"></b></p>
+          <p class="help warn hidden" id="remoteRestart">Restart QuizCaster once so it can accept connections from your phone.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Updates</h2><span class="badge" id="versionBadge"></span></div>
+        <p class="help">QuizCaster checks GitHub for new versions once every six hours. It only tells you; it never installs anything during a show.</p>
+        <label class="switch"><input type="checkbox" id="updatesOn"> Check for updates</label>
+      </div>
+
+      <div class="panel hidden" id="ffmpegPanel">
+        <div class="panel-head"><h2>FFmpeg missing</h2><span class="badge bad">Needed to go live</span></div>
+        <p class="help">FFmpeg sends the video to YouTube. Install it and restart QuizCaster: Windows <code>winget install Gyan.FFmpeg</code>, macOS <code>brew install ffmpeg</code>, Linux <code>sudo apt install ffmpeg</code>. Previews work without it.</p>
+      </div>
+    </section>
+
+    <!-- ======================= QUESTIONS ======================= -->
+    <section id="tab-questions" class="tab hidden">
+      <h1>Questions</h1>
+      <p class="lead">Generate questions with AI or upload your own. Only approved questions are played.</p>
+      <div class="cols">
+        <div class="panel">
+          <h2>Generate with AI</h2>
+          <label>Topic <input id="genTopic" placeholder="e.g. Indian history, 90s Bollywood, space"></label>
+          <div class="row">
+            <label>How many <input id="genCount" type="number" min="1" max="200" value="30"></label>
+            <label>Difficulty
+              <select id="genDiff"><option value="mixed">Mixed</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+            </label>
+          </div>
+          <button class="btn primary" id="genGo">Generate</button>
+          <div class="progress hidden" id="genProg"><div></div></div>
+          <p class="msg" id="genMsg"></p>
+        </div>
+        <div class="panel">
+          <h2>Upload your own</h2>
+          <p class="help">CSV, Excel or JSON with columns: question, option_a, option_b, option_c, option_d, answer (A–D), explanation. <a href="/api/template.csv">Download the template</a>.</p>
+          <label>Set name <input id="upName" placeholder="My quiz"></label>
+          <label>File <input id="upFile" type="file" accept=".csv,.json,.xlsx"></label>
+          <button class="btn primary" id="upGo">Upload</button>
+          <p class="msg" id="upMsg"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Your question sets</h2>
+        <div id="setList" class="setlist"></div>
+      </div>
+
+      <div class="panel hidden" id="editor">
+        <div class="panel-head">
+          <h2 id="edTitle"></h2>
+          <div class="row tight">
+            <button class="btn" id="edApproveAll">Approve all</button>
+            <button class="btn ghost" id="edUnapproveAll">Unapprove all</button>
+            <button class="btn ghost" id="edMore">Generate 10 more</button>
+            <button class="btn ghost danger" id="edDelete">Delete set</button>
+          </div>
+        </div>
+        <p class="help" id="edCount"></p>
+        <div id="qlist"></div>
+      </div>
+    </section>
+
+    <!-- ======================= GO LIVE ======================= -->
+    <section id="tab-golive" class="tab hidden">
+      <h1>Go live</h1>
+      <p class="lead">Pick your questions and look, check the details, then start.</p>
+      <div class="cols wide-left">
+        <div class="panel">
+          <label>Question set <select id="glSet"></select></label>
+          <div class="row">
+            <label>Theme <select id="glTheme"></select></label>
+            <label>Questions <input id="glMax" type="number" min="0" placeholder="All approved"></label>
+          </div>
+          <fieldset class="modes">
+            <legend>How do you want to run it?</legend>
+            <label class="mode"><input type="radio" name="mode" value="preview" checked><span><b>Preview</b>Plays here on this screen with pretend viewers. Uses no YouTube quota.</span></label>
+            <label class="mode"><input type="radio" name="mode" value="test"><span><b>Test run</b>Goes live on your channel as unlisted, so only people with the link can see it.</span></label>
+            <label class="mode"><input type="radio" name="mode" value="live"><span><b>Go live</b>The real show on your channel.</span></label>
+          </fieldset>
+          <div id="previewOpts">
+            <label class="switch"><input type="checkbox" id="glBots" checked> Pretend viewers answer automatically</label>
+            <label class="switch"><input type="checkbox" id="glRecord"> Also record an MP4 of the preview</label>
+          </div>
+          <div id="ytOpts" class="hidden">
+            <label>Privacy
+              <select id="glPrivacy"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select>
+            </label>
+            <details>
+              <summary>Title, description and tags (optional)</summary>
+              <label>Title <input id="glTitle" maxlength="100"></label>
+              <label>Description <textarea id="glDesc" rows="4"></textarea></label>
+              <label>Tags (comma separated) <input id="glTags"></label>
+            </details>
+            <p class="help">The stream is marked as not made for kids (so live chat stays on) and as containing AI-generated content.</p>
+          </div>
+          <p class="msg" id="glMsg"></p>
+          <button class="btn primary big" id="glGo">Start preview</button>
+        </div>
+        <div class="panel">
+          <h2>Thumbnail</h2>
+          <img id="thumbPrev" alt="Thumbnail preview" class="thumb">
+          <h2>Today's YouTube quota</h2>
+          <p class="help" id="glQuota"></p>
+          <h2>On screen</h2>
+          <div class="ov-wrap"><iframe id="glOverlay" title="Overlay preview" tabindex="-1"></iframe></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= LIVE ======================= -->
+    <section id="tab-live" class="tab hidden">
+      <div class="live-head">
+        <h1 id="liveTitle">Nothing running</h1>
+        <div class="row tight">
+          <a class="btn ghost hidden" id="watchLink" target="_blank" rel="noopener">Open on YouTube</a>
+          <button class="btn" id="stopSoft">Finish after this question</button>
+          <button class="btn danger" id="stopHard">Stop now</button>
+        </div>
+      </div>
+      <p class="lead" id="liveSub">Start a preview or a stream from Go live.</p>
+      <div class="cols live-cols">
+        <div class="stage-wrap">
+          <div class="ov-wrap big"><iframe id="liveOverlay" src="/overlay" title="What viewers see" tabindex="-1"></iframe></div>
+        </div>
+        <div>
+          <div class="panel">
+            <h2>Comments</h2>
+            <ul id="comments" class="comments"><li class="empty">Comments read during answer windows appear here.</li></ul>
+            <form class="row tight hidden" id="fakeForm">
+              <input id="fakeName" placeholder="Name" value="You" class="short">
+              <input id="fakeText" placeholder="Pretend comment, e.g. B or why?" class="grow">
+              <button class="btn">Send</button>
+            </form>
+          </div>
+          <div class="panel">
+            <h2>Leaderboard</h2>
+            <ol id="board" class="board"><li class="empty">No points yet.</li></ol>
+          </div>
+          <div class="panel">
+            <h2>Activity</h2>
+            <ul id="log" class="log"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= HISTORY ======================= -->
+    <section id="tab-history" class="tab hidden">
+      <h1>History</h1>
+      <div class="panel"><table class="table" id="histTable"></table></div>
+    </section>
+  </main>
+</div>
+<div class="toast hidden" id="toast" role="status"></div>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>
